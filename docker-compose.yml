@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  admin-web:
+    build: .
+    container_name: admin-web
+    restart: unless-stopped
+    environment:
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://host.docker.internal:8000}
+      USER_CHILDREN_SERVICE_URL: ${USER_CHILDREN_SERVICE_URL:-http://host.docker.internal:8001}
+      NUXT_PUBLIC_BASE_URL: ${NUXT_PUBLIC_BASE_URL:-http://localhost:3001}
+    ports:
+      - "3001:3001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
