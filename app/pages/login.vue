@@ -54,6 +54,11 @@
 </template>
 
 <script setup lang="ts">
+type HttpError = {
+  statusMessage?: string
+  data?: { detail?: string }
+}
+
 const identifier = ref('')
 const password = ref('')
 const loading = ref(false)
@@ -82,7 +87,8 @@ const onLogin = async () => {
     authState.value.isAdmin = true
     await navigateTo('/users')
   } catch (err: unknown) {
-    error.value = err?.statusMessage || err?.data?.detail || 'Login failed'
+    const e = err as HttpError
+    error.value = e.statusMessage || e.data?.detail || 'Login failed'
   } finally {
     loading.value = false
   }

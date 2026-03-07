@@ -68,8 +68,24 @@
 </template>
 
 <script setup lang="ts">
-const users = ref<unknown[]>([])
-const children = ref<unknown[]>([])
+type UserListItem = {
+  user_id: string
+  name?: string
+}
+
+type ChildListItem = {
+  child_id: string
+  name: string
+  birthdate: string
+}
+
+type HttpError = {
+  statusMessage?: string
+  data?: { detail?: string }
+}
+
+const users = ref<UserListItem[]>([])
+const children = ref<ChildListItem[]>([])
 const selectedUserId = ref('')
 const loading = ref(false)
 const error = ref('')
@@ -80,7 +96,8 @@ const loadUsers = async () => {
   try {
     users.value = await $fetch('/api/admin/users')
   } catch (err: unknown) {
-    error.value = err?.statusMessage || err?.data?.detail || 'Failed to load users'
+    const e = err as HttpError
+    error.value = e.statusMessage || e.data?.detail || 'Failed to load users'
   } finally {
     loading.value = false
   }
@@ -93,7 +110,8 @@ const loadChildren = async (userId: string) => {
   try {
     children.value = await $fetch(`/api/admin/users/${userId}/children`)
   } catch (err: unknown) {
-    error.value = err?.statusMessage || err?.data?.detail || 'Failed to load children'
+    const e = err as HttpError
+    error.value = e.statusMessage || e.data?.detail || 'Failed to load children'
     children.value = []
   } finally {
     loading.value = false

@@ -1,6 +1,12 @@
 import { getCookie, setCookie } from 'h3'
 import type { H3Event } from 'h3'
 
+declare const Buffer: {
+  from(input: string, encoding: string): {
+    toString(encoding: string): string
+  }
+}
+
 type JwtPayload = {
   sub?: string
   roles?: string[] | string

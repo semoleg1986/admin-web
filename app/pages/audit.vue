@@ -107,6 +107,11 @@ type AuditEvent = {
   actor_id: string
 }
 
+type HttpError = {
+  statusMessage?: string
+  data?: { detail?: string }
+}
+
 const events = ref<AuditEvent[]>([])
 const actorId = ref('')
 const action = ref('')
@@ -129,7 +134,8 @@ const loadEvents = async () => {
 
     events.value = await $fetch<AuditEvent[]>('/api/admin/audit/events', { query })
   } catch (err: unknown) {
-    error.value = err?.statusMessage || err?.data?.detail || 'Failed to load audit events'
+    const e = err as HttpError
+    error.value = e.statusMessage || e.data?.detail || 'Failed to load audit events'
     events.value = []
   } finally {
     loading.value = false
