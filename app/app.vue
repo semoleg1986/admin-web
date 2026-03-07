@@ -49,6 +49,11 @@ const signOut = async () => {
             class="nav-link"
           >Audit</NuxtLink>
           <NuxtLink
+            v-if="authState.isAuthed"
+            to="/assessment"
+            class="nav-link"
+          >Assessment</NuxtLink>
+          <NuxtLink
             v-if="!authState.isAuthed"
             to="/login"
             class="nav-link"

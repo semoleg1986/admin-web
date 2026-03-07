@@ -1,5 +1,5 @@
 export default defineNuxtRouteMiddleware(async (to) => {
-  if (!to.path.startsWith('/users') && !to.path.startsWith('/audit')) return
+  if (!to.path.startsWith('/users') && !to.path.startsWith('/audit') && !to.path.startsWith('/assessment')) return
 
   if (import.meta.server) {
     const token = useCookie('access_token')
