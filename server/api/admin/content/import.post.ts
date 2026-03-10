@@ -16,6 +16,14 @@ export default defineEventHandler(async (event) => {
   if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
     throw createError({ statusCode: 422, statusMessage: 'Field \'payload\' must be object' })
   }
+  const validateOnly
+    = typeof body === 'object' && body !== null && 'validate_only' in body
+      ? (body as { validate_only?: unknown }).validate_only
+      : undefined
+  const errorMode
+    = typeof body === 'object' && body !== null && 'error_mode' in body
+      ? (body as { error_mode?: unknown }).error_mode
+      : undefined
 
   return await $fetch(`${config.assessmentServiceUrl}/v1/admin/content/import`, {
     method: 'POST',
@@ -23,6 +31,8 @@ export default defineEventHandler(async (event) => {
     body: {
       source_id: sourceId,
       contract_version: contractVersion,
+      validate_only: typeof validateOnly === 'boolean' ? validateOnly : undefined,
+      error_mode: typeof errorMode === 'string' && errorMode ? errorMode : undefined,
       payload
     }
   })

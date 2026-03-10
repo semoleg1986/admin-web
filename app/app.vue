@@ -5,10 +5,25 @@ useHead({
   htmlAttrs: { lang: 'en' }
 })
 
+type ShellTab = {
+  to: string
+  label: string
+}
+
+const tabs: ShellTab[] = [
+  { to: '/users', label: 'Users' },
+  { to: '/assessment', label: 'Assessment' },
+  { to: '/content-ops', label: 'Content Ops' },
+  { to: '/audit', label: 'Audit' }
+]
+
+const route = useRoute()
 const authState = useState('admin-auth', () => ({
   isAuthed: false,
   isAdmin: false
 }))
+
+const isRouteActive = (tabPath: string) => route.path.startsWith(tabPath)
 
 onMounted(async () => {
   try {
@@ -31,44 +46,51 @@ const signOut = async () => {
 
 <template>
   <UApp>
-    <div class="app-shell">
-      <header class="topbar">
+    <div class="shell">
+      <header class="header">
         <NuxtLink
           :to="authState.isAuthed ? '/users' : '/login'"
           class="brand"
-        >Admin Portal</NuxtLink>
-        <nav class="nav">
+        >
+          <span class="brand__title">Monitoring Admin</span>
+          <span class="brand__subtitle">Methodist workspace</span>
+        </NuxtLink>
+
+        <div class="header-actions">
           <NuxtLink
             v-if="authState.isAuthed"
-            to="/users"
-            class="nav-link"
-          >Users</NuxtLink>
-          <NuxtLink
-            v-if="authState.isAuthed"
-            to="/audit"
-            class="nav-link"
-          >Audit</NuxtLink>
-          <NuxtLink
-            v-if="authState.isAuthed"
-            to="/assessment"
-            class="nav-link"
-          >Assessment</NuxtLink>
-          <NuxtLink
-            v-if="!authState.isAuthed"
-            to="/login"
-            class="nav-link"
-          >Login</NuxtLink>
+            to="/settings"
+            class="action-link"
+          >
+            Settings
+          </NuxtLink>
           <button
             v-if="authState.isAuthed"
-            class="nav-link btn-link"
+            class="action-link action-link--button"
             @click="signOut"
           >
             Sign out
           </button>
           <UColorModeButton />
-        </nav>
+        </div>
       </header>
-      <UMain class="main">
+
+      <nav
+        v-if="authState.isAuthed"
+        class="tabs"
+      >
+        <NuxtLink
+          v-for="tab in tabs"
+          :key="tab.to"
+          :to="tab.to"
+          class="tab"
+          :class="{ 'tab--active': isRouteActive(tab.to) }"
+        >
+          {{ tab.label }}
+        </NuxtLink>
+      </nav>
+
+      <UMain class="content">
         <NuxtPage />
       </UMain>
     </div>
@@ -76,22 +98,94 @@ const signOut = async () => {
 </template>
 
 <style scoped>
-.app-shell { min-height: 100vh; background: var(--bg); }
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
+.shell {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(52, 211, 153, 0.08) 0%, rgba(52, 211, 153, 0) 180px),
+    var(--bg);
+}
+
+.header {
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(8px);
 }
-.brand { font-weight: 700; text-decoration: none; color: var(--text); }
-.nav { display: flex; gap: 12px; align-items: center; }
-.nav-link { text-decoration: none; color: var(--muted); font-weight: 600; }
-.btn-link { background: transparent; border: none; cursor: pointer; padding: 0; }
-.nav-link:hover { color: var(--text); }
-.main { padding: 0; }
+
+.brand {
+  display: grid;
+  text-decoration: none;
+}
+
+.brand__title {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.brand__subtitle {
+  font-size: 0.76rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.action-link {
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--panel);
+}
+
+.action-link--button {
+  cursor: pointer;
+}
+
+.tabs {
+  position: sticky;
+  top: 66px;
+  z-index: 15;
+  display: flex;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(8px);
+  overflow-x: auto;
+}
+
+.tab {
+  white-space: nowrap;
+  text-decoration: none;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+.tab--active {
+  color: var(--text);
+  border-color: var(--border);
+  background: var(--panel);
+}
+
+.content {
+  padding: 0;
+}
 </style>

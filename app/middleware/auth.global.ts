@@ -1,5 +1,6 @@
 export default defineNuxtRouteMiddleware(async (to) => {
-  if (!to.path.startsWith('/users') && !to.path.startsWith('/audit') && !to.path.startsWith('/assessment')) return
+  const protectedPrefixes = ['/users', '/audit', '/assessment', '/content-ops', '/settings']
+  if (!protectedPrefixes.some(prefix => to.path.startsWith(prefix))) return
 
   if (import.meta.server) {
     const token = useCookie('access_token')
