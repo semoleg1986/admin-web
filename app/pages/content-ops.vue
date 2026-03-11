@@ -256,7 +256,7 @@
           :disabled="isBusy"
           @click="setTemplate"
         >
-          Insert template v1.1
+          Insert template v1.2
         </button>
       </header>
 
@@ -275,7 +275,7 @@
           <input
             v-model="contractVersion"
             type="text"
-            placeholder="v1.1"
+            placeholder="v1.2"
             required
           >
         </label>
@@ -482,7 +482,7 @@ const linkNodeId = ref('')
 const linkPredecessorCsv = ref('')
 
 const sourceId = ref('manual-ui')
-const contractVersion = ref('v1.1')
+const contractVersion = ref('v1.2')
 const payloadText = ref('')
 
 const subjectPatternsText = ref('^math_v\\d{2}.*$')
@@ -571,6 +571,7 @@ const loadHistory = () => {
 }
 
 const setTemplate = () => {
+  contractVersion.value = 'v1.2'
   const template = {
     subjects: [{ code: 'math_v99_demo', name: 'Math v99 demo' }],
     topics: [{ code: 'MV99-T1', subject_code: 'math_v99_demo', grade: 2, name: 'Topic' }],
