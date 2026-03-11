@@ -13,6 +13,6 @@ export default defineEventHandler(async (event) => {
   ensureUuid(testId, 'testId')
 
   return await fetchWithAuthRetry(event, `${config.assessmentServiceUrl}/v1/admin/tests/${testId}/publish`, {
-    method: 'POST',
+    method: 'POST'
   })
 })
