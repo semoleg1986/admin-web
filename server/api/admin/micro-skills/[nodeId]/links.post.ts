@@ -1,4 +1,5 @@
 import { requireAdminToken } from '~~/server/utils/admin'
+import { fetchWithAuthRetry } from '~~/server/utils/auth'
 
 function parseStringArray(value: unknown): string[] {
   if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) {
@@ -9,7 +10,7 @@ function parseStringArray(value: unknown): string[] {
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const token = requireAdminToken(event)
+  await requireAdminToken(event)
   const nodeId = getRouterParam(event, 'nodeId')
   if (!nodeId || !nodeId.trim()) {
     throw createError({ statusCode: 422, statusMessage: 'nodeId is required' })
@@ -21,9 +22,8 @@ export default defineEventHandler(async (event) => {
       ? parseStringArray((body as { predecessor_ids?: unknown }).predecessor_ids)
       : []
 
-  return await $fetch(`${config.assessmentServiceUrl}/v1/admin/micro-skills/${nodeId}/links`, {
+  return await fetchWithAuthRetry(event, `${config.assessmentServiceUrl}/v1/admin/micro-skills/${nodeId}/links`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: {
       predecessor_ids: predecessorIds
     }

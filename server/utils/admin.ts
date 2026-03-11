@@ -1,10 +1,9 @@
-import { getAccessToken, isAdminToken } from '~~/server/utils/auth'
+import { ensureAccessToken, isAdminToken } from '~~/server/utils/auth'
 
-export function requireAdminToken(event: Parameters<typeof getAccessToken>[0]): string {
-  const token = getAccessToken(event)
-  if (!token) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
+export async function requireAdminToken(
+  event: Parameters<typeof ensureAccessToken>[0]
+): Promise<string> {
+  const token = await ensureAccessToken(event)
   if (!isAdminToken(token)) {
     throw createError({ statusCode: 403, statusMessage: 'Admin role required' })
   }

@@ -1,5 +1,5 @@
 import { getQuery } from 'h3'
-import { getAccessToken, isAdminToken } from '~~/server/utils/auth'
+import { ensureAccessToken, fetchWithAuthRetry, isAdminToken } from '~~/server/utils/auth'
 import { ensureUuid } from '~~/server/utils/validation'
 
 function validateIsoDateTime(value: string, field: string): string {
@@ -11,10 +11,7 @@ function validateIsoDateTime(value: string, field: string): string {
 }
 
 export default defineEventHandler(async (event) => {
-  const token = getAccessToken(event)
-  if (!token) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
+  const token = await ensureAccessToken(event)
   if (!isAdminToken(token)) {
     throw createError({ statusCode: 403, statusMessage: 'Admin role required' })
   }
@@ -44,8 +41,8 @@ export default defineEventHandler(async (event) => {
   const url = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl
 
   try {
-    return await $fetch(url, {
-      headers: { Authorization: `Bearer ${token}` }
+    return await fetchWithAuthRetry(event, url, {
+      method: 'GET'
     })
   } catch (err: unknown) {
     const code

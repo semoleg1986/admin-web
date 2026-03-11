@@ -1,4 +1,5 @@
 import { requireAdminToken } from '~~/server/utils/admin'
+import { fetchWithAuthRetry } from '~~/server/utils/auth'
 import { readRequiredStringField } from '~~/server/utils/validation'
 
 type Criticality = 'low' | 'medium' | 'high'
@@ -14,7 +15,7 @@ function parseStringArray(value: unknown, field: string): string[] {
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const token = requireAdminToken(event)
+  await requireAdminToken(event)
   const body = await readBody(event)
 
   const nodeId = readRequiredStringField(body, 'node_id')
@@ -62,9 +63,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 422, statusMessage: 'Field \'status\' must be draft|active|archived' })
   }
 
-  return await $fetch(`${config.assessmentServiceUrl}/v1/admin/micro-skills`, {
+  return await fetchWithAuthRetry(event, `${config.assessmentServiceUrl}/v1/admin/micro-skills`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: {
       node_id: nodeId,
       subject_code: subjectCode,

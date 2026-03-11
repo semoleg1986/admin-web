@@ -1,4 +1,5 @@
 import { requireAdminToken } from '~~/server/utils/admin'
+import { fetchWithAuthRetry } from '~~/server/utils/auth'
 
 type PatternList = string[]
 
@@ -12,7 +13,7 @@ function parsePatterns(value: unknown, field: string): PatternList {
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const token = requireAdminToken(event)
+  await requireAdminToken(event)
   const body = await readBody(event)
 
   const dryRun
@@ -36,9 +37,8 @@ export default defineEventHandler(async (event) => {
       ? parsePatterns((body as { node_id_patterns?: unknown }).node_id_patterns, 'node_id_patterns')
       : []
 
-  return await $fetch(`${config.assessmentServiceUrl}/v1/admin/fixtures/cleanup`, {
+  return await fetchWithAuthRetry(event, `${config.assessmentServiceUrl}/v1/admin/fixtures/cleanup`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: {
       dry_run: dryRun,
       subject_code_patterns: subjectPatterns.length ? subjectPatterns : undefined,

@@ -89,12 +89,13 @@ const children = ref<ChildListItem[]>([])
 const selectedUserId = ref('')
 const loading = ref(false)
 const error = ref('')
+const fetcher = $fetch as <T = unknown>(url: string, options?: Record<string, unknown>) => Promise<T>
 
 const loadUsers = async () => {
   loading.value = true
   error.value = ''
   try {
-    users.value = await $fetch('/api/admin/users')
+    users.value = await fetcher<UserListItem[]>('/api/admin/users')
   } catch (err: unknown) {
     const e = err as HttpError
     error.value = e.statusMessage || e.data?.detail || 'Failed to load users'
@@ -108,7 +109,7 @@ const loadChildren = async (userId: string) => {
   error.value = ''
   selectedUserId.value = userId
   try {
-    children.value = await $fetch(`/api/admin/users/${userId}/children`)
+    children.value = await fetcher<ChildListItem[]>(`/api/admin/users/${userId}/children`)
   } catch (err: unknown) {
     const e = err as HttpError
     error.value = e.statusMessage || e.data?.detail || 'Failed to load children'

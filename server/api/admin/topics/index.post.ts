@@ -1,9 +1,10 @@
 import { requireAdminToken } from '~~/server/utils/admin'
+import { fetchWithAuthRetry } from '~~/server/utils/auth'
 import { readRequiredStringField } from '~~/server/utils/validation'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const token = requireAdminToken(event)
+  await requireAdminToken(event)
   const body = await readBody(event)
 
   const code = readRequiredStringField(body, 'code')
@@ -18,9 +19,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 422, statusMessage: 'Field \'grade\' must be integer in [1..11]' })
   }
 
-  return await $fetch(`${config.assessmentServiceUrl}/v1/admin/topics`, {
+  return await fetchWithAuthRetry(event, `${config.assessmentServiceUrl}/v1/admin/topics`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: {
       code,
       subject_code: subjectCode,

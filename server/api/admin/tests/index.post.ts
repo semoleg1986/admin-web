@@ -1,4 +1,5 @@
 import { requireAdminToken } from '~~/server/utils/admin'
+import { fetchWithAuthRetry } from '~~/server/utils/auth'
 import { readRequiredStringField } from '~~/server/utils/validation'
 
 type QuestionInput = {
@@ -10,7 +11,7 @@ type QuestionInput = {
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const token = requireAdminToken(event)
+  await requireAdminToken(event)
   const body = await readBody(event)
 
   const subjectCode = readRequiredStringField(body, 'subject_code')
@@ -49,9 +50,8 @@ export default defineEventHandler(async (event) => {
     }
   })
 
-  return await $fetch(`${config.assessmentServiceUrl}/v1/admin/tests`, {
+  return await fetchWithAuthRetry(event, `${config.assessmentServiceUrl}/v1/admin/tests`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: {
       subject_code: subjectCode,
       grade: gradeRaw,

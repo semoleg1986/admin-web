@@ -1,10 +1,7 @@
-import { getAccessToken, getRolesFromJwt, getUserIdFromJwt, isAdminToken } from '~~/server/utils/auth'
+import { ensureAccessToken, getRolesFromJwt, getUserIdFromJwt, isAdminToken } from '~~/server/utils/auth'
 
 export default defineEventHandler(async (event) => {
-  const token = getAccessToken(event)
-  if (!token) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
+  const token = await ensureAccessToken(event)
 
   const userId = getUserIdFromJwt(token)
   if (!userId) {

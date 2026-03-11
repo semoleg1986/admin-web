@@ -1,11 +1,8 @@
-import { getAccessToken, isAdminToken } from '~~/server/utils/auth'
+import { ensureAccessToken, fetchWithAuthRetry, isAdminToken } from '~~/server/utils/auth'
 import { ensureUuid } from '~~/server/utils/validation'
 
 export default defineEventHandler(async (event) => {
-  const token = getAccessToken(event)
-  if (!token) {
-    throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  }
+  const token = await ensureAccessToken(event)
   if (!isAdminToken(token)) {
     throw createError({ statusCode: 403, statusMessage: 'Admin role required' })
   }
@@ -19,8 +16,8 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
 
   try {
-    return await $fetch(`${config.userChildrenServiceUrl}/v1/admin/users/${userId}/children`, {
-      headers: { Authorization: `Bearer ${token}` }
+    return await fetchWithAuthRetry(event, `${config.userChildrenServiceUrl}/v1/admin/users/${userId}/children`, {
+      method: 'GET'
     })
   } catch (err: unknown) {
     const code

@@ -1,9 +1,10 @@
 import { requireAdminToken } from '~~/server/utils/admin'
+import { fetchWithAuthRetry } from '~~/server/utils/auth'
 import { readRequiredStringField } from '~~/server/utils/validation'
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  const token = requireAdminToken(event)
+  await requireAdminToken(event)
   const body = await readBody(event)
 
   const sourceId = readRequiredStringField(body, 'source_id')
@@ -25,9 +26,8 @@ export default defineEventHandler(async (event) => {
       ? (body as { error_mode?: unknown }).error_mode
       : undefined
 
-  return await $fetch(`${config.assessmentServiceUrl}/v1/admin/content/import`, {
+  return await fetchWithAuthRetry(event, `${config.assessmentServiceUrl}/v1/admin/content/import`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
     body: {
       source_id: sourceId,
       contract_version: contractVersion,
