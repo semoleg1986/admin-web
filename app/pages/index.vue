@@ -10,8 +10,18 @@
 </template>
 
 <script setup lang="ts">
-onMounted(() => {
-  navigateTo('/login')
+onMounted(async () => {
+  try {
+    const me = await $fetch<{ is_admin: boolean }>('/api/me')
+    if (me.is_admin) {
+      await navigateTo('/dashboard')
+      return
+    }
+  } catch {
+    // no-op
+  }
+
+  await navigateTo('/login')
 })
 </script>
 

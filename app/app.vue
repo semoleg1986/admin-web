@@ -11,6 +11,7 @@ type ShellTab = {
 }
 
 const tabs: ShellTab[] = [
+  { to: '/dashboard', label: 'Dashboard' },
   { to: '/users', label: 'Users' },
   { to: '/assessment', label: 'Assessment' },
   { to: '/content-ops', label: 'Content Ops' },
@@ -49,7 +50,7 @@ const signOut = async () => {
     <div class="shell">
       <header class="header">
         <NuxtLink
-          :to="authState.isAuthed ? '/users' : '/login'"
+          :to="authState.isAuthed ? '/dashboard' : '/login'"
           class="brand"
         >
           <span class="brand__title">Monitoring Admin</span>
@@ -71,7 +72,6 @@ const signOut = async () => {
           >
             Sign out
           </button>
-          <UColorModeButton />
         </div>
       </header>
 

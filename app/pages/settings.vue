@@ -34,6 +34,27 @@
           <dd>{{ authServiceUrl }}</dd>
         </div>
       </dl>
+
+      <section class="theme">
+        <h2>Theme</h2>
+        <p class="theme__hint">
+          Default is system. You can override it here.
+        </p>
+        <div class="theme__actions">
+          <button
+            v-for="option in themeOptions"
+            :key="option.value"
+            class="theme__button"
+            :class="{ 'theme__button--active': colorMode.preference === option.value }"
+            @click="setTheme(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+        <p class="theme__meta">
+          active: {{ colorMode.value }}
+        </p>
+      </section>
     </section>
   </main>
 </template>
@@ -45,8 +66,19 @@ const publicBaseUrl = String(config.public.baseUrl || '')
 const assessmentServiceUrl = String(config.assessmentServiceUrl || '')
 const userChildrenServiceUrl = String(config.userChildrenServiceUrl || '')
 const authServiceUrl = String(config.authServiceUrl || '')
+const colorMode = useColorMode()
 
 const isProdLike = computed(() => !publicBaseUrl.includes('localhost'))
+
+const themeOptions = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' }
+] as const
+
+const setTheme = (value: 'system' | 'light' | 'dark') => {
+  colorMode.preference = value
+}
 </script>
 
 <style scoped>
@@ -125,5 +157,49 @@ dd {
   margin: 8px 0 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   word-break: break-all;
+}
+
+.theme {
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.theme h2 {
+  margin: 0;
+}
+
+.theme__hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.theme__actions {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.theme__button {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.theme__button--active {
+  background: color-mix(in srgb, #22c55e 18%, var(--panel));
+  border-color: color-mix(in srgb, #22c55e 60%, var(--border));
+}
+
+.theme__meta {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 </style>

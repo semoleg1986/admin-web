@@ -85,7 +85,7 @@ const onLogin = async () => {
 
     authState.value.isAuthed = true
     authState.value.isAdmin = true
-    await navigateTo('/users')
+    await navigateTo('/dashboard')
   } catch (err: unknown) {
     const e = err as HttpError
     error.value = e.statusMessage || e.data?.detail || 'Login failed'
@@ -93,6 +93,19 @@ const onLogin = async () => {
     loading.value = false
   }
 }
+
+onMounted(async () => {
+  try {
+    const me = await $fetch<{ is_admin: boolean }>('/api/me')
+    if (me.is_admin) {
+      authState.value.isAuthed = true
+      authState.value.isAdmin = true
+      await navigateTo('/dashboard')
+    }
+  } catch {
+    // stay on login page
+  }
+})
 </script>
 
 <style scoped>
