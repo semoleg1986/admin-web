@@ -9,10 +9,10 @@
       </div>
       <button
         class="btn btn--ghost"
-        :disabled="loading"
+        :disabled="resource.isLoading.value || resource.isRefreshing.value"
         @click="loadEvents"
       >
-        Refresh
+        {{ resource.isRefreshing.value ? 'Syncing...' : 'Refresh' }}
       </button>
     </header>
 
@@ -57,7 +57,7 @@
       </label>
       <button
         class="btn"
-        :disabled="loading"
+        :disabled="resource.isLoading.value || resource.isRefreshing.value"
         @click="loadEvents"
       >
         Apply filters
@@ -65,6 +65,12 @@
     </section>
 
     <section class="card">
+      <p
+        v-if="updatedLabel"
+        class="updated"
+      >
+        updated {{ updatedLabel }}
+      </p>
       <article
         v-for="event in events"
         :key="event.event_id"
@@ -107,42 +113,49 @@ type AuditEvent = {
   actor_id: string
 }
 
-type HttpError = {
-  statusMessage?: string
-  data?: { detail?: string }
-}
-
 const events = ref<AuditEvent[]>([])
 const actorId = ref('')
 const action = ref('')
 const targetType = ref('')
 const fromDateTime = ref('')
 const toDateTime = ref('')
-const loading = ref(false)
-const error = ref('')
+const filters = ref<Record<string, string>>({})
+
+const resource = useLiveResource(
+  async () => await $fetch<AuditEvent[]>('/api/admin/audit/events', { query: filters.value }),
+  {
+    immediate: true,
+    pollIntervalMs: 15000,
+    pollWhenHidden: false,
+    refetchOnFocus: true,
+    refetchOnReconnect: true
+  }
+)
 
 const loadEvents = async () => {
-  loading.value = true
-  error.value = ''
-  try {
-    const query: Record<string, string> = {}
-    if (actorId.value.trim()) query.actor_id = actorId.value.trim()
-    if (action.value.trim()) query.action = action.value.trim()
-    if (targetType.value.trim()) query.target_type = targetType.value.trim()
-    if (fromDateTime.value) query.from = new Date(fromDateTime.value).toISOString()
-    if (toDateTime.value) query.to = new Date(toDateTime.value).toISOString()
-
-    events.value = await $fetch<AuditEvent[]>('/api/admin/audit/events', { query })
-  } catch (err: unknown) {
-    const e = err as HttpError
-    error.value = e.statusMessage || e.data?.detail || 'Failed to load audit events'
-    events.value = []
-  } finally {
-    loading.value = false
-  }
+  const query: Record<string, string> = {}
+  if (actorId.value.trim()) query.actor_id = actorId.value.trim()
+  if (action.value.trim()) query.action = action.value.trim()
+  if (targetType.value.trim()) query.target_type = targetType.value.trim()
+  if (fromDateTime.value) query.from = new Date(fromDateTime.value).toISOString()
+  if (toDateTime.value) query.to = new Date(toDateTime.value).toISOString()
+  filters.value = query
+  await resource.refresh()
 }
 
-onMounted(loadEvents)
+watch(
+  () => resource.data.value,
+  (value) => {
+    events.value = value ?? []
+  },
+  { immediate: true }
+)
+
+const error = computed(() => resource.error.value)
+const updatedLabel = computed(() => {
+  if (!resource.lastUpdatedAt.value) return ''
+  return resource.lastUpdatedAt.value.toLocaleTimeString()
+})
 </script>
 
 <style scoped>
@@ -161,4 +174,5 @@ input { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px
 .btn--ghost { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
 .error { max-width: 980px; margin: 8px auto 0; color: #b91c1c; }
 .muted { color: var(--muted); }
+.updated { margin: 0 0 10px; color: var(--muted); font-size: 0.85rem; }
 </style>

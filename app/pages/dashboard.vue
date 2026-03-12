@@ -29,11 +29,19 @@
         <h2>Run history</h2>
         <button
           class="btn btn--ghost"
-          @click="loadHistory"
+          :disabled="historyResource.isLoading.value || historyResource.isRefreshing.value"
+          @click="historyResource.refresh()"
         >
-          Refresh
+          {{ historyResource.isRefreshing.value ? 'Syncing...' : 'Refresh' }}
         </button>
       </div>
+
+      <p
+        v-if="historyUpdatedLabel"
+        class="history-updated"
+      >
+        updated {{ historyUpdatedLabel }}
+      </p>
 
       <article
         v-for="item in history"
@@ -66,17 +74,6 @@
 </template>
 
 <script setup lang="ts">
-type HistoryItem = {
-  id: string
-  operation: string
-  status: string
-  summary: string
-  time: string
-  requestId?: string
-}
-
-const HISTORY_KEY = 'admin-content-ops-history'
-
 const shortcuts = [
   { to: '/content-ops', title: 'Content Ops', description: 'Import, validate, cleanup, and manual catalog actions.' },
   { to: '/assessment', title: 'Assessment', description: 'Create tests, assign tests, and check attempts.' },
@@ -84,41 +81,36 @@ const shortcuts = [
   { to: '/audit', title: 'Audit', description: 'Inspect events and security trail.' }
 ]
 
-const history = ref<HistoryItem[]>([])
+const historyStore = useContentOpsHistory()
+const historyResource = useLiveResource(
+  async () => historyStore.read(),
+  {
+    pollIntervalMs: 15000,
+    pollWhenHidden: false,
+    refetchOnFocus: true,
+    refetchOnReconnect: true
+  }
+)
 
-const loadHistory = () => {
-  if (!import.meta.client) return
-  const raw = localStorage.getItem(HISTORY_KEY)
-  if (!raw) {
-    history.value = []
-    return
-  }
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    if (Array.isArray(parsed)) {
-      history.value = parsed
-        .filter(item => typeof item === 'object' && item !== null)
-        .map((item) => {
-          const source = item as Partial<HistoryItem>
-          return {
-            id: String(source.id ?? ''),
-            operation: String(source.operation ?? 'unknown'),
-            status: String(source.status ?? 'unknown'),
-            summary: String(source.summary ?? ''),
-            time: String(source.time ?? ''),
-            requestId: source.requestId ? String(source.requestId) : undefined
-          }
-        })
-        .slice(0, 30)
-    } else {
-      history.value = []
-    }
-  } catch {
-    history.value = []
-  }
+const history = computed(() => historyResource.data.value ?? [])
+const historyUpdatedLabel = computed(() => {
+  if (!historyResource.lastUpdatedAt.value) return ''
+  return historyResource.lastUpdatedAt.value.toLocaleTimeString()
+})
+
+const onStorage = () => {
+  void historyResource.refresh({ mode: 'silent' })
 }
 
-onMounted(loadHistory)
+onMounted(() => {
+  if (!import.meta.client) return
+  window.addEventListener('storage', onStorage)
+})
+
+onBeforeUnmount(() => {
+  if (!import.meta.client) return
+  window.removeEventListener('storage', onStorage)
+})
 </script>
 
 <style scoped>
@@ -184,6 +176,12 @@ onMounted(loadHistory)
 
 .history-header h2 {
   margin: 0;
+}
+
+.history-updated {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .history-row {

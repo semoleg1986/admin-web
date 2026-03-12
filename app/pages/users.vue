@@ -9,14 +9,20 @@
       </div>
       <button
         class="btn btn--ghost"
-        :disabled="loading"
+        :disabled="usersResource.isLoading.value || usersResource.isRefreshing.value"
         @click="loadUsers"
       >
-        Refresh
+        {{ usersResource.isRefreshing.value ? 'Syncing...' : 'Refresh' }}
       </button>
     </header>
 
     <section class="card">
+      <p
+        v-if="usersUpdatedLabel"
+        class="updated"
+      >
+        updated {{ usersUpdatedLabel }}
+      </p>
       <article
         v-for="u in users"
         :key="u.user_id"
@@ -91,17 +97,22 @@ const loading = ref(false)
 const error = ref('')
 const fetcher = $fetch as <T = unknown>(url: string, options?: Record<string, unknown>) => Promise<T>
 
-const loadUsers = async () => {
-  loading.value = true
-  error.value = ''
-  try {
-    users.value = await fetcher<UserListItem[]>('/api/admin/users')
-  } catch (err: unknown) {
-    const e = err as HttpError
-    error.value = e.statusMessage || e.data?.detail || 'Failed to load users'
-  } finally {
-    loading.value = false
+const usersResource = useLiveResource(
+  async () => await fetcher<UserListItem[]>('/api/admin/users'),
+  {
+    pollIntervalMs: 20000,
+    pollWhenHidden: false,
+    refetchOnFocus: true,
+    refetchOnReconnect: true
   }
+)
+const usersUpdatedLabel = computed(() => {
+  if (!usersResource.lastUpdatedAt.value) return ''
+  return usersResource.lastUpdatedAt.value.toLocaleTimeString()
+})
+
+const loadUsers = async () => {
+  await usersResource.refresh()
 }
 
 const loadChildren = async (userId: string) => {
@@ -119,7 +130,21 @@ const loadChildren = async (userId: string) => {
   }
 }
 
-onMounted(loadUsers)
+watch(
+  () => usersResource.data.value,
+  (value) => {
+    users.value = value ?? []
+  },
+  { immediate: true }
+)
+
+watch(
+  () => usersResource.error.value,
+  (value) => {
+    if (!value) return
+    error.value = value
+  }
+)
 </script>
 
 <style scoped>
@@ -134,4 +159,5 @@ onMounted(loadUsers)
 .btn--ghost { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
 .error { max-width: 980px; margin: 8px auto 0; color: #b91c1c; }
 .muted { color: var(--muted); }
+.updated { margin: 0 0 10px; color: var(--muted); font-size: 0.85rem; }
 </style>

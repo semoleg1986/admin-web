@@ -66,12 +66,19 @@
           </div>
           <button
             class="theme__button"
-            :disabled="sessionsLoading"
-            @click="loadMySessions"
+            :disabled="sessionsResource.isLoading.value || sessionsResource.isRefreshing.value"
+            @click="sessionsResource.refresh()"
           >
-            {{ sessionsLoading ? 'Loading...' : 'Refresh' }}
+            {{ sessionsResource.isRefreshing.value ? 'Syncing...' : 'Refresh' }}
           </button>
         </header>
+
+        <p
+          v-if="sessionUpdatedLabel"
+          class="sessions__updated"
+        >
+          updated {{ sessionUpdatedLabel }}
+        </p>
 
         <p
           v-if="sessionsError"
@@ -143,11 +150,6 @@ type SessionTelemetryItem = {
   geo_display: string | null
 }
 
-type HttpError = {
-  statusMessage?: string
-  data?: { detail?: string }
-}
-
 const config = useRuntimeConfig()
 
 const publicBaseUrl = String(config.public.baseUrl || '')
@@ -158,13 +160,38 @@ const colorMode = useColorMode()
 const fetcher = $fetch as <T = unknown>(url: string, options?: Record<string, unknown>) => Promise<T>
 
 const isProdLike = computed(() => !publicBaseUrl.includes('localhost'))
-const sessions = ref<SessionTelemetryItem[]>([])
-const sessionsLoading = ref(false)
-const sessionsError = ref('')
+const meResource = useLiveResource(
+  async () => await fetcher<MeResponse>('/api/me'),
+  {
+    pollIntervalMs: 0,
+    refetchOnFocus: true,
+    refetchOnReconnect: true
+  }
+)
+const sessionsResource = useLiveResource(
+  async () => {
+    const me = meResource.data.value
+    if (!me?.user_id) return []
+    return await fetcher<SessionTelemetryItem[]>(`/api/admin/users/${me.user_id}/sessions`)
+  },
+  {
+    pollIntervalMs: 20000,
+    pollWhenHidden: false,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+    enabled: computed(() => Boolean(meResource.data.value?.user_id))
+  }
+)
+const sessions = computed(() => sessionsResource.data.value ?? [])
+const sessionsError = computed(() => meResource.error.value || sessionsResource.error.value)
 const latestSession = computed<SessionTelemetryItem | null>(() => sessions.value[0] || null)
 const latestLocation = computed(() => {
   if (!latestSession.value) return 'n/a'
   return sessionLocation(latestSession.value)
+})
+const sessionUpdatedLabel = computed(() => {
+  if (!sessionsResource.lastUpdatedAt.value) return ''
+  return sessionsResource.lastUpdatedAt.value.toLocaleTimeString()
 })
 
 const themeOptions = [
@@ -194,23 +221,6 @@ const sessionStatus = (item: SessionTelemetryItem) => {
   }
   return 'active'
 }
-
-const loadMySessions = async () => {
-  sessionsLoading.value = true
-  sessionsError.value = ''
-  try {
-    const me = await fetcher<MeResponse>('/api/me')
-    sessions.value = await fetcher<SessionTelemetryItem[]>(`/api/admin/users/${me.user_id}/sessions`)
-  } catch (err: unknown) {
-    const e = err as HttpError
-    sessionsError.value = e.statusMessage || e.data?.detail || 'Failed to load session telemetry'
-    sessions.value = []
-  } finally {
-    sessionsLoading.value = false
-  }
-}
-
-onMounted(loadMySessions)
 </script>
 
 <style scoped>
@@ -357,6 +367,12 @@ dd {
 .sessions__error {
   margin: 12px 0 0;
   color: #b91c1c;
+}
+
+.sessions__updated {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .sessions__latest {
