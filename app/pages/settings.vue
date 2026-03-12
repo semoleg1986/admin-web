@@ -55,11 +55,99 @@
           active: {{ colorMode.value }}
         </p>
       </section>
+
+      <section class="sessions">
+        <header class="sessions__header">
+          <div>
+            <h2>Session Telemetry</h2>
+            <p class="sessions__hint">
+              Current admin sessions from auth-service (IP / location / user-agent).
+            </p>
+          </div>
+          <button
+            class="theme__button"
+            :disabled="sessionsLoading"
+            @click="loadMySessions"
+          >
+            {{ sessionsLoading ? 'Loading...' : 'Refresh' }}
+          </button>
+        </header>
+
+        <p
+          v-if="sessionsError"
+          class="sessions__error"
+        >
+          {{ sessionsError }}
+        </p>
+
+        <div
+          v-else-if="latestSession"
+          class="sessions__latest"
+        >
+          <p class="sessions__latest-title">
+            Latest session
+          </p>
+          <p><strong>Location:</strong> {{ latestLocation }}</p>
+          <p><strong>IP:</strong> {{ latestSession.ip_address || 'n/a' }}</p>
+          <p><strong>User-Agent:</strong> {{ latestSession.user_agent || 'n/a' }}</p>
+          <p><strong>Created:</strong> {{ formatDateTime(latestSession.created_at) }}</p>
+        </div>
+
+        <div class="sessions__list">
+          <article
+            v-for="session in sessions"
+            :key="session.token_id"
+            class="sessions__item"
+          >
+            <p class="sessions__row">
+              <strong>Status:</strong> {{ sessionStatus(session) }}
+            </p>
+            <p class="sessions__row">
+              <strong>Location:</strong> {{ sessionLocation(session) }}
+            </p>
+            <p class="sessions__row">
+              <strong>IP:</strong> {{ session.ip_address || 'n/a' }}
+            </p>
+            <p class="sessions__row">
+              <strong>User-Agent:</strong> {{ session.user_agent || 'n/a' }}
+            </p>
+            <p class="sessions__row">
+              <strong>Created:</strong> {{ formatDateTime(session.created_at) }}
+            </p>
+            <p class="sessions__row">
+              <strong>Expires:</strong> {{ formatDateTime(session.expires_at) }}
+            </p>
+          </article>
+        </div>
+      </section>
     </section>
   </main>
 </template>
 
 <script setup lang="ts">
+type MeResponse = {
+  user_id: string
+}
+
+type SessionTelemetryItem = {
+  token_id: string
+  created_at: string
+  expires_at: string
+  revoked_at: string | null
+  revoke_reason: string | null
+  ip_address: string | null
+  user_agent: string | null
+  geo_city: string | null
+  geo_region: string | null
+  geo_country: string | null
+  geo_display: string | null
+}
+
+type HttpError = {
+  statusMessage?: string
+  data?: { detail?: string }
+}
+
 const config = useRuntimeConfig()
 
 const publicBaseUrl = String(config.public.baseUrl || '')
@@ -67,8 +155,17 @@ const assessmentServiceUrl = String(config.assessmentServiceUrl || '')
 const userChildrenServiceUrl = String(config.userChildrenServiceUrl || '')
 const authServiceUrl = String(config.authServiceUrl || '')
 const colorMode = useColorMode()
+const fetcher = $fetch as <T = unknown>(url: string, options?: Record<string, unknown>) => Promise<T>
 
 const isProdLike = computed(() => !publicBaseUrl.includes('localhost'))
+const sessions = ref<SessionTelemetryItem[]>([])
+const sessionsLoading = ref(false)
+const sessionsError = ref('')
+const latestSession = computed<SessionTelemetryItem | null>(() => sessions.value[0] || null)
+const latestLocation = computed(() => {
+  if (!latestSession.value) return 'n/a'
+  return sessionLocation(latestSession.value)
+})
 
 const themeOptions = [
   { value: 'system', label: 'System' },
@@ -79,6 +176,41 @@ const themeOptions = [
 const setTheme = (value: 'system' | 'light' | 'dark') => {
   colorMode.preference = value
 }
+
+const formatDateTime = (value: string) => {
+  return new Date(value).toLocaleString()
+}
+
+const sessionLocation = (item: SessionTelemetryItem) => {
+  if (item.geo_display) return item.geo_display
+  const parts = [item.geo_city, item.geo_region, item.geo_country].filter(Boolean)
+  if (!parts.length) return 'n/a'
+  return parts.join(', ')
+}
+
+const sessionStatus = (item: SessionTelemetryItem) => {
+  if (item.revoked_at) {
+    return item.revoke_reason ? `revoked (${item.revoke_reason})` : 'revoked'
+  }
+  return 'active'
+}
+
+const loadMySessions = async () => {
+  sessionsLoading.value = true
+  sessionsError.value = ''
+  try {
+    const me = await fetcher<MeResponse>('/api/me')
+    sessions.value = await fetcher<SessionTelemetryItem[]>(`/api/admin/users/${me.user_id}/sessions`)
+  } catch (err: unknown) {
+    const e = err as HttpError
+    sessionsError.value = e.statusMessage || e.data?.detail || 'Failed to load session telemetry'
+    sessions.value = []
+  } finally {
+    sessionsLoading.value = false
+  }
+}
+
+onMounted(loadMySessions)
 </script>
 
 <style scoped>
@@ -201,5 +333,63 @@ dd {
   margin: 10px 0 0;
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.sessions {
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.sessions__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sessions__hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.sessions__error {
+  margin: 12px 0 0;
+  color: #b91c1c;
+}
+
+.sessions__latest {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: color-mix(in srgb, var(--panel) 88%, #0ea5e9 12%);
+}
+
+.sessions__latest-title {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.sessions__latest p {
+  margin: 4px 0;
+}
+
+.sessions__list {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.sessions__item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.sessions__row {
+  margin: 4px 0;
+  word-break: break-word;
 }
 </style>
