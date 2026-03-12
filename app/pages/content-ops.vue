@@ -520,6 +520,20 @@ const parsePatternLines = (value: string): string[] =>
     .map(item => item.trim())
     .filter(Boolean)
 
+const compilePatterns = (patterns: string[]): RegExp[] =>
+  patterns
+    .map((pattern) => {
+      try {
+        return new RegExp(pattern)
+      } catch {
+        return null
+      }
+    })
+    .filter((item): item is RegExp => item instanceof RegExp)
+
+const matchesAnyPattern = (value: string, patterns: RegExp[]): boolean =>
+  patterns.some(pattern => pattern.test(value))
+
 const nowLabel = () => new Date().toLocaleString()
 
 const requestIdForRun = (): string => {
@@ -765,6 +779,9 @@ const runImport = async (validateOnly: boolean) => {
       summary: `imported=${response.imported}, errors=${response.errors.length}`,
       requestId
     })
+    if (!validateOnly && response.status.startsWith('completed')) {
+      await loadCatalog()
+    }
   } catch (err: unknown) {
     importError.value = toErrorText(err, 'Import request failed', requestId)
     pushHistory({
@@ -799,6 +816,18 @@ const runCleanup = async (dryRun: boolean) => {
       }
     })
     cleanupResult.value = response
+
+    if (!dryRun && response.status.startsWith('completed')) {
+      const subjectPatterns = compilePatterns(parsePatternLines(subjectPatternsText.value))
+      const topicPatterns = compilePatterns(parsePatternLines(topicPatternsText.value))
+      const nodePatterns = compilePatterns(parsePatternLines(nodePatternsText.value))
+
+      subjects.value = subjects.value.filter(item => !matchesAnyPattern(item.code, subjectPatterns))
+      topics.value = topics.value.filter(item => !matchesAnyPattern(item.code, topicPatterns))
+      microSkills.value = microSkills.value.filter(item => !matchesAnyPattern(item.node_id, nodePatterns))
+      await loadCatalog()
+    }
+
     pushHistory({
       operation: dryRun ? 'cleanup.dry-run' : 'cleanup.apply',
       status: response.status,
