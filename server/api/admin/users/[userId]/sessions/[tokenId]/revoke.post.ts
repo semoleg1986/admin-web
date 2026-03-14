@@ -1,33 +1,24 @@
 import { requireAdminToken } from '~~/server/utils/admin'
-import { fetchWithAuthRetry, getRefreshTokenId } from '~~/server/utils/auth'
+import { fetchWithAuthRetry } from '~~/server/utils/auth'
 import { ensureUuid } from '~~/server/utils/validation'
 
 export default defineEventHandler(async (event) => {
   await requireAdminToken(event)
 
   const userId = event.context.params?.userId
-  if (!userId) {
-    throw createError({ statusCode: 400, statusMessage: 'Missing userId' })
+  const tokenId = event.context.params?.tokenId
+  if (!userId || !tokenId) {
+    throw createError({ statusCode: 400, statusMessage: 'Missing userId or tokenId' })
   }
   ensureUuid(userId, 'userId')
+  ensureUuid(tokenId, 'tokenId')
 
   const config = useRuntimeConfig()
-  const currentTokenId = getRefreshTokenId(event)
   try {
-    const sessions = await fetchWithAuthRetry<Array<Record<string, unknown>>>(
-      event,
-      `${config.authServiceUrl}/v1/admin/users/${userId}/sessions`,
-      {
-        method: 'GET'
-      }
-    )
-    return sessions.map((item) => {
-      const tokenId = typeof item.token_id === 'string' ? item.token_id : ''
-      return {
-        ...item,
-        is_current: Boolean(currentTokenId && tokenId && tokenId === currentTokenId)
-      }
+    await fetchWithAuthRetry(event, `${config.authServiceUrl}/v1/admin/users/${userId}/sessions/${tokenId}/revoke`, {
+      method: 'POST'
     })
+    return { ok: true }
   } catch (err: unknown) {
     const code
       = typeof err === 'object'

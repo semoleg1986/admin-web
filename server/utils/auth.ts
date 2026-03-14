@@ -10,6 +10,7 @@ declare const Buffer: {
 type JwtPayload = {
   sub?: string
   roles?: string[] | string
+  jti?: string
 }
 
 export function getAccessToken(event: H3Event): string | null {
@@ -18,6 +19,13 @@ export function getAccessToken(event: H3Event): string | null {
 
 export function getRefreshToken(event: H3Event): string | null {
   return getCookie(event, 'refresh_token') || null
+}
+
+export function getRefreshTokenId(event: H3Event): string | null {
+  const refreshToken = getRefreshToken(event)
+  if (!refreshToken) return null
+  const tokenId = decodeJwt(refreshToken)?.jti
+  return typeof tokenId === 'string' && tokenId ? tokenId : null
 }
 
 export function setAccessToken(event: H3Event, token: string, secure: boolean, sameSite: string): void {

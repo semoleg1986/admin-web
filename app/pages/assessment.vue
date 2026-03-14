@@ -99,12 +99,17 @@
               placeholder="question text"
               required
             >
-            <input
-              v-model="question.answer_key"
-              type="text"
-              placeholder="answer key"
-              required
+            <select
+              v-model="question.question_type"
+              @change="onQuestionTypeChange(question)"
             >
+              <option value="text">
+                text
+              </option>
+              <option value="single_choice">
+                single_choice
+              </option>
+            </select>
             <input
               v-model.number="question.max_score"
               type="number"
@@ -112,6 +117,152 @@
               placeholder="max score"
               required
             >
+          </div>
+
+          <div
+            v-if="question.question_type === 'text'"
+            class="subsection"
+          >
+            <div class="grid">
+              <input
+                v-model="question.answer_key"
+                type="text"
+                placeholder="answer key"
+                required
+              >
+            </div>
+            <div class="section-head">
+              <h4>Text distractors</h4>
+              <button
+                class="btn btn--ghost"
+                type="button"
+                :disabled="loading"
+                @click="addTextDistractor(index)"
+              >
+                Add distractor
+              </button>
+            </div>
+            <p
+              v-if="!question.text_distractors.length"
+              class="muted"
+            >
+              Optional: add patterns for diagnostics.
+            </p>
+            <div
+              v-for="(distractor, distractorIndex) in question.text_distractors"
+              :key="`q-${index}-text-distractor-${distractorIndex}`"
+              class="subcard"
+            >
+              <div class="grid">
+                <input
+                  v-model="distractor.pattern"
+                  type="text"
+                  placeholder="pattern"
+                  required
+                >
+                <select v-model="distractor.match_mode">
+                  <option value="exact">
+                    exact
+                  </option>
+                  <option value="normalized">
+                    normalized
+                  </option>
+                  <option value="regex">
+                    regex
+                  </option>
+                </select>
+                <select v-model="distractor.diagnostic_tag">
+                  <option
+                    v-for="tag in diagnosticTagOptions"
+                    :key="`text-tag-${tag}`"
+                    :value="tag"
+                  >
+                    {{ tag }}
+                  </option>
+                </select>
+              </div>
+              <button
+                class="btn btn--ghost btn--danger"
+                type="button"
+                :disabled="loading"
+                @click="removeTextDistractor(index, distractorIndex)"
+              >
+                Remove distractor
+              </button>
+            </div>
+          </div>
+
+          <div
+            v-else
+            class="subsection"
+          >
+            <div class="section-head">
+              <h4>Options</h4>
+              <button
+                class="btn btn--ghost"
+                type="button"
+                :disabled="loading"
+                @click="addOption(index)"
+              >
+                Add option
+              </button>
+            </div>
+
+            <div
+              v-for="(option, optionIndex) in question.options"
+              :key="`q-${index}-option-${optionIndex}`"
+              class="subcard"
+            >
+              <div class="grid">
+                <input
+                  v-model="option.option_id"
+                  type="text"
+                  placeholder="option_id (A)"
+                  required
+                >
+                <input
+                  v-model="option.text"
+                  type="text"
+                  placeholder="option text"
+                  required
+                >
+                <input
+                  :value="optionIndex + 1"
+                  type="number"
+                  readonly
+                >
+                <select v-model="option.diagnostic_tag">
+                  <option value="">
+                    (none)
+                  </option>
+                  <option
+                    v-for="tag in diagnosticTagOptions"
+                    :key="`option-tag-${tag}`"
+                    :value="tag"
+                  >
+                    {{ tag }}
+                  </option>
+                </select>
+              </div>
+              <div class="sub-actions">
+                <label class="radio">
+                  <input
+                    v-model="question.correct_option_id"
+                    type="radio"
+                    :value="option.option_id"
+                  >
+                  Correct
+                </label>
+                <button
+                  class="btn btn--ghost btn--danger"
+                  type="button"
+                  :disabled="loading || question.options.length <= 2"
+                  @click="removeOption(index, optionIndex)"
+                >
+                  Remove option
+                </button>
+              </div>
+            </div>
           </div>
         </article>
 
@@ -220,6 +371,10 @@
 </template>
 
 <script setup lang="ts">
+type QuestionType = 'text' | 'single_choice'
+type DiagnosticTag = 'inattention' | 'misread_condition' | 'calc_error' | 'concept_gap' | 'guessing' | 'other'
+type TextMatchMode = 'exact' | 'normalized' | 'regex'
+
 type TestItem = {
   test_id: string
   subject_code: string
@@ -236,14 +391,72 @@ type MicroSkillItem = {
 type QuestionDraft = {
   node_id: string
   text: string
+  question_type: QuestionType
   answer_key: string
+  correct_option_id: string
+  options: QuestionOptionDraft[]
+  text_distractors: TextDistractorDraft[]
   max_score: number
 }
+
+type QuestionOptionDraft = {
+  option_id: string
+  text: string
+  diagnostic_tag: DiagnosticTag | ''
+}
+
+type TextDistractorDraft = {
+  pattern: string
+  match_mode: TextMatchMode
+  diagnostic_tag: DiagnosticTag
+}
+
+type QuestionOptionPayload = {
+  option_id: string
+  text: string
+  position: number
+  diagnostic_tag: DiagnosticTag | null
+}
+
+type TextDistractorPayload = {
+  pattern: string
+  match_mode: TextMatchMode
+  diagnostic_tag: DiagnosticTag
+}
+
+type TextQuestionPayload = {
+  node_id: string
+  text: string
+  question_type: 'text'
+  max_score: number
+  answer_key: string
+  text_distractors: TextDistractorPayload[]
+}
+
+type SingleChoiceQuestionPayload = {
+  node_id: string
+  text: string
+  question_type: 'single_choice'
+  max_score: number
+  correct_option_id: string
+  options: QuestionOptionPayload[]
+}
+
+type CreateTestQuestionPayload = TextQuestionPayload | SingleChoiceQuestionPayload
 
 type HttpError = {
   data?: { detail?: string }
   statusMessage?: string
 }
+
+const diagnosticTagOptions: DiagnosticTag[] = [
+  'inattention',
+  'misread_condition',
+  'calc_error',
+  'concept_gap',
+  'guessing',
+  'other'
+]
 
 const tests = ref<TestItem[]>([])
 const microSkills = ref<MicroSkillItem[]>([])
@@ -251,10 +464,26 @@ const loading = ref(false)
 const error = ref('')
 const diagnostics = ref('')
 
+const makeOptionDraft = (position: number): QuestionOptionDraft => ({
+  option_id: String.fromCharCode(64 + position),
+  text: '',
+  diagnostic_tag: ''
+})
+
+const makeTextDistractorDraft = (): TextDistractorDraft => ({
+  pattern: '',
+  match_mode: 'exact',
+  diagnostic_tag: 'other'
+})
+
 const makeQuestionDraft = (nodeId = ''): QuestionDraft => ({
   node_id: nodeId,
   text: '',
+  question_type: 'text',
   answer_key: '',
+  correct_option_id: '',
+  options: [makeOptionDraft(1), makeOptionDraft(2)],
+  text_distractors: [],
   max_score: 1
 })
 
@@ -323,23 +552,128 @@ const removeQuestion = (index: number) => {
   questions.value.splice(index, 1)
 }
 
+const onQuestionTypeChange = (question: QuestionDraft) => {
+  if (question.question_type === 'text') {
+    question.correct_option_id = ''
+    if (question.options.length < 2) {
+      question.options = [makeOptionDraft(1), makeOptionDraft(2)]
+    }
+    return
+  }
+
+  if (question.options.length < 2) {
+    question.options = [makeOptionDraft(1), makeOptionDraft(2)]
+  }
+  if (!question.correct_option_id) {
+    question.correct_option_id = question.options[0]?.option_id || ''
+  }
+}
+
+const addOption = (questionIndex: number) => {
+  const question = questions.value[questionIndex]
+  if (!question) return
+
+  const nextPosition = question.options.length + 1
+  question.options.push(makeOptionDraft(nextPosition))
+}
+
+const removeOption = (questionIndex: number, optionIndex: number) => {
+  const question = questions.value[questionIndex]
+  if (!question || question.options.length <= 2) return
+
+  const removed = question.options[optionIndex]
+  question.options.splice(optionIndex, 1)
+  if (removed && question.correct_option_id === removed.option_id) {
+    question.correct_option_id = question.options[0]?.option_id || ''
+  }
+}
+
+const addTextDistractor = (questionIndex: number) => {
+  const question = questions.value[questionIndex]
+  if (!question) return
+  question.text_distractors.push(makeTextDistractorDraft())
+}
+
+const removeTextDistractor = (questionIndex: number, distractorIndex: number) => {
+  const question = questions.value[questionIndex]
+  if (!question) return
+  question.text_distractors.splice(distractorIndex, 1)
+}
+
 const createTest = async () => {
   loading.value = true
   error.value = ''
   try {
-    const payloadQuestions = questions.value.map(item => ({
-      node_id: item.node_id.trim(),
-      text: item.text.trim(),
-      answer_key: item.answer_key.trim(),
-      max_score: Number(item.max_score) || 1
-    }))
+    const payloadQuestions: CreateTestQuestionPayload[] = questions.value.map((item) => {
+      const nodeId = item.node_id.trim()
+      const text = item.text.trim()
+      const maxScore = Number(item.max_score) || 1
+
+      if (item.question_type === 'text') {
+        const textDistractors = item.text_distractors
+          .map<TextDistractorPayload>(distractor => ({
+            pattern: distractor.pattern.trim(),
+            match_mode: distractor.match_mode,
+            diagnostic_tag: distractor.diagnostic_tag
+          }))
+          .filter(distractor => distractor.pattern.length > 0)
+
+        return {
+          node_id: nodeId,
+          text,
+          question_type: 'text',
+          max_score: maxScore,
+          answer_key: item.answer_key.trim(),
+          text_distractors: textDistractors
+        }
+      }
+
+      const options = item.options
+        .map<QuestionOptionPayload>((option, optionIndex) => ({
+          option_id: option.option_id.trim(),
+          text: option.text.trim(),
+          position: optionIndex + 1,
+          diagnostic_tag: option.diagnostic_tag || null
+        }))
+        .filter(option => option.option_id && option.text)
+
+      return {
+        node_id: nodeId,
+        text,
+        question_type: 'single_choice',
+        max_score: maxScore,
+        correct_option_id: item.correct_option_id.trim(),
+        options
+      }
+    })
 
     if (!payloadQuestions.length) {
       error.value = 'Add at least one question'
       return
     }
-    if (payloadQuestions.some(item => !item.node_id || !item.text || !item.answer_key || item.max_score < 1)) {
-      error.value = 'Fill node_id, text, answer_key, and max_score>=1 for all questions'
+    if (payloadQuestions.some(item => !item.node_id || !item.text || item.max_score < 1)) {
+      error.value = 'Fill node_id, text and max_score>=1 for all questions'
+      return
+    }
+    const invalidText = payloadQuestions.some(item =>
+      item.question_type === 'text' && !item.answer_key.trim()
+    )
+    if (invalidText) {
+      error.value = 'Text question requires answer_key'
+      return
+    }
+    const invalidSingleChoice = payloadQuestions.some((item) => {
+      if (item.question_type !== 'single_choice') return false
+      if (!item.correct_option_id.trim()) return true
+      if (item.options.length < 2) return true
+      const ids = item.options.map(option => option.option_id)
+      if (new Set(ids).size !== ids.length) return true
+      if (!ids.includes(item.correct_option_id)) return true
+      const correctOption = item.options.find(option => option.option_id === item.correct_option_id)
+      return Boolean(correctOption?.diagnostic_tag)
+    })
+    if (invalidSingleChoice) {
+      error.value = 'Single-choice question requires >=2 options, valid correct_option_id and empty diagnostic for correct option'
       return
     }
 
@@ -427,4 +761,8 @@ input, select { border: 1px solid var(--border); border-radius: 10px; padding: 1
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .question-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: grid; gap: 10px; }
 .question-head { display: flex; justify-content: space-between; align-items: center; }
+.subsection { border-top: 1px dashed var(--border); padding-top: 10px; display: grid; gap: 10px; }
+.subcard { border: 1px solid var(--border); border-radius: 10px; padding: 10px; display: grid; gap: 10px; }
+.sub-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.radio { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 600; }
 </style>
